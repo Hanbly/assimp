@@ -2,6 +2,7 @@
 local current_dir = path.getdirectory(_SCRIPT)
 -- 动态拼接 include 目录，彻底杜绝路径错误
 local assimp_include_dir = path.join(current_dir, "include/assimp")
+local zlib_dir = path.join(current_dir, "contrib/zlib") -- zlib 目录
 
 project "Assimp"
     kind "StaticLib"
@@ -13,6 +14,49 @@ project "Assimp"
     targetdir ("bin/" .. outputdir .. "/%{prj.name}")
     objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
 
+    local function generate_zlib_headers()
+        local zconf_in  = path.join(zlib_dir, "zconf.h.in")
+        local zconf_out = path.join(zlib_dir, "zconf.h")
+
+        -- 检查目标是否存在，不存在才生成
+        if not os.isfile(zconf_out) then
+            print("Generating zlib header: " .. zconf_out)
+            local f = io.open(zconf_in, "r")
+            if f then
+                local content = f:read("*all")
+                f:close()
+
+                -- zconf.h.in 通常包含 CMake 宏，我们需要清理它
+                -- 对于 Windows MSVC，通常可以直接去除 cmakedefine
+                content = content:gsub("#cmakedefine", "// #cmakedefine")
+                
+                -- 如果是 Windows，通常不需要 unistd.h
+                content = content:gsub("#define Z_HAVE_UNISTD_H", "// #define Z_HAVE_UNISTD_H")
+
+                local out = io.open(zconf_out, "w")
+                if out then
+                    out:write(content)
+                    out:close()
+                    print("  [OK] Generated: zconf.h")
+                end
+            else
+                -- 备用方案：有些版本的 zlib 可能叫 zconf.h.included 或者其他名字
+                -- 如果找不到 .in，尝试直接创建一个最小化的 Win64 zconf.h
+                print("  [Warning] zconf.h.in not found. Creating default Win64 zconf.h")
+                local default_content = [[
+                    #ifndef ZCONF_H
+                    #define ZCONF_H
+                    #include <windows.h>
+                    #define Z_HAVE_STDARG_H
+                    #endif
+                    ]]
+                local out = io.open(zconf_out, "w")
+                if out then out:write(default_content); out:close() end
+            end
+        else
+            print("  [Skip] zconf.h already exists.")
+        end
+    end
     ---------------------------------------------------------------------------
     -- 自动化脚本：基于绝对路径生成 config.h / revision.h
     ---------------------------------------------------------------------------
@@ -76,6 +120,7 @@ project "Assimp"
         end
     end
 
+    generate_zlib_headers()
     generate_assimp_headers()
     ---------------------------------------------------------------------------
 
