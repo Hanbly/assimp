@@ -10,6 +10,8 @@ build
 *.obj
 
 # Visual Studio
+/bin/ 
+/bin-int/
 *.sln
 *.ncb
 *.vcproj
