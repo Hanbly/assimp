@@ -7,6 +7,7 @@ build
 # build artefacts
 *.o
 *.a
+*.obj
 
 # Visual Studio
 *.sln
